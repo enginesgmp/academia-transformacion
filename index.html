@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Centro de Transformacion multiempresa para rutas certificables y contenidos de aprendizaje.">
+    <title>Academia de Transformacion</title>
+    <link rel="stylesheet" href="./css/styles.css">
+  </head>
+  <body>
+    <div id="app" class="app-shell" data-state="loading">
+      <header class="topbar" data-app-header>
+        <button class="icon-button menu-toggle" type="button" data-menu-toggle aria-label="Abrir navegacion" aria-expanded="false">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+
+        <a class="brand" href="#/" aria-label="Ir al inicio">
+          <span class="brand-mark" data-brand-mark>AT</span>
+          <span class="brand-copy">
+            <strong data-app-name>Academia de Transformacion</strong>
+            <small data-app-subtitle>Centro de Transformacion</small>
+          </span>
+        </a>
+
+        <div class="session-pill" data-session-pill>
+          <span class="session-dot"></span>
+          <span data-session-label>Sin sesion</span>
+        </div>
+      </header>
+
+      <div class="shell-body">
+        <aside class="sidebar" data-sidebar aria-label="Navegacion principal">
+          <nav class="nav-list" data-nav-list></nav>
+        </aside>
+
+        <main class="main-panel" id="main-content" tabindex="-1">
+          <section class="view is-loading" aria-live="polite">
+            <p>Cargando arquitectura de la academia...</p>
+          </section>
+        </main>
+      </div>
+
+      <footer class="footer">
+        <span data-footer-name>Academia de Transformacion</span>
+        <span>Preparada para integracion con Apps Script</span>
+      </footer>
+    </div>
+
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>
