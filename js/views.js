@@ -689,8 +689,10 @@ function renderAcademicBlocks(blocks) {
 }
 
 function renderAcademicBlock(block) {
+  const blockClass = getAcademicBlockClass(block);
+
   return `
-    <article class="card module-card">
+    <article class="card module-card ${blockClass}">
       <h2>${escapeHtml(block.title || "Contenido")}</h2>
       ${renderBlockBody(block.body)}
       ${block.activity?.type ? renderDynamicActivity(block.activity) : ""}
@@ -705,10 +707,191 @@ function renderBlockBody(body) {
     return `<p class="muted">Bloque pendiente de contenido.</p>`;
   }
 
-  return normalizedBody
-    .split(/\n{2,}/)
-    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`)
-    .join("");
+  return `<div class="academic-markdown">${renderMarkdown(normalizedBody)}</div>`;
+}
+
+function getAcademicBlockClass(block) {
+  const type = String(block.type || "").toUpperCase();
+  const title = String(block.title || "").toLowerCase();
+
+  if (type === "CASO" || title.includes("caso")) {
+    return "module-card-case";
+  }
+
+  if (type === "MENSAJE" || title.includes("mensaje")) {
+    return "module-card-message";
+  }
+
+  if (title.includes("recordatorio")) {
+    return "module-card-reminder";
+  }
+
+  if (title.includes("ejemplo")) {
+    return "module-card-example";
+  }
+
+  return "";
+}
+
+function renderMarkdown(markdown) {
+  const lines = markdown.replace(/\r\n/g, "\n").split("\n");
+  const html = [];
+  let index = 0;
+
+  while (index < lines.length) {
+    const line = lines[index];
+
+    if (!line.trim()) {
+      index += 1;
+      continue;
+    }
+
+    if (isMarkdownTableStart(lines, index)) {
+      const table = collectMarkdownTable(lines, index);
+      html.push(renderMarkdownTable(table.rows));
+      index = table.nextIndex;
+      continue;
+    }
+
+    if (/^```/.test(line)) {
+      const code = collectMarkdownCodeBlock(lines, index);
+      html.push(`<pre class="markdown-code-block"><code>${escapeHtml(code.content)}</code></pre>`);
+      index = code.nextIndex;
+      continue;
+    }
+
+    if (/^#{1,6}\s+/.test(line)) {
+      const level = line.match(/^#{1,6}/)[0].length;
+      const htmlLevel = Math.min(level + 2, 6);
+      html.push(`<h${htmlLevel}>${renderInlineMarkdown(line.replace(/^#{1,6}\s+/, ""))}</h${htmlLevel}>`);
+      index += 1;
+      continue;
+    }
+
+    if (/^>\s?/.test(line)) {
+      const quote = collectWhile(lines, index, (value) => /^>\s?/.test(value));
+      html.push(`<blockquote>${quote.items.map((item) => `<p>${renderInlineMarkdown(item.replace(/^>\s?/, ""))}</p>`).join("")}</blockquote>`);
+      index = quote.nextIndex;
+      continue;
+    }
+
+    if (/^\s*[-*]\s+/.test(line)) {
+      const list = collectWhile(lines, index, (value) => /^\s*[-*]\s+/.test(value));
+      html.push(`<ul>${list.items.map((item) => `<li>${renderInlineMarkdown(item.replace(/^\s*[-*]\s+/, ""))}</li>`).join("")}</ul>`);
+      index = list.nextIndex;
+      continue;
+    }
+
+    const paragraph = collectParagraph(lines, index);
+    html.push(`<p>${paragraph.items.map(renderInlineMarkdown).join("<br>")}</p>`);
+    index = paragraph.nextIndex;
+  }
+
+  return html.join("");
+}
+
+function renderInlineMarkdown(value) {
+  return escapeHtml(value)
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>");
+}
+
+function isMarkdownTableStart(lines, index) {
+  return Boolean(
+    lines[index] &&
+    lines[index + 1] &&
+    /^\s*\|.+\|\s*$/.test(lines[index]) &&
+    /^\s*\|?[\s:-]+\|[\s|:-]*\|?\s*$/.test(lines[index + 1])
+  );
+}
+
+function collectMarkdownTable(lines, index) {
+  const rows = [];
+  let cursor = index;
+
+  while (cursor < lines.length && /^\s*\|.+\|\s*$/.test(lines[cursor])) {
+    rows.push(lines[cursor]);
+    cursor += 1;
+  }
+
+  return {
+    rows,
+    nextIndex: cursor,
+  };
+}
+
+function renderMarkdownTable(rows) {
+  const parsedRows = rows
+    .filter((row, index) => index !== 1)
+    .map((row) => row.trim().replace(/^\||\|$/g, "").split("|").map((cell) => cell.trim()));
+  const header = parsedRows[0] || [];
+  const body = parsedRows.slice(1);
+
+  return `
+    <div class="markdown-table-wrap">
+      <table class="markdown-table">
+        <thead>
+          <tr>${header.map((cell) => `<th>${renderInlineMarkdown(cell)}</th>`).join("")}</tr>
+        </thead>
+        <tbody>
+          ${body.map((row) => `<tr>${header.map((_, index) => `<td>${renderInlineMarkdown(row[index] || "")}</td>`).join("")}</tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function collectWhile(lines, index, predicate) {
+  const items = [];
+  let cursor = index;
+
+  while (cursor < lines.length && predicate(lines[cursor])) {
+    items.push(lines[cursor]);
+    cursor += 1;
+  }
+
+  return {
+    items,
+    nextIndex: cursor,
+  };
+}
+
+function collectParagraph(lines, index) {
+  const items = [];
+  let cursor = index;
+
+  while (
+    cursor < lines.length &&
+    lines[cursor].trim() &&
+    !/^#{1,6}\s+/.test(lines[cursor]) &&
+    !/^```/.test(lines[cursor]) &&
+    !/^>\s?/.test(lines[cursor]) &&
+    !/^\s*[-*]\s+/.test(lines[cursor]) &&
+    !isMarkdownTableStart(lines, cursor)
+  ) {
+    items.push(lines[cursor]);
+    cursor += 1;
+  }
+
+  return {
+    items,
+    nextIndex: cursor,
+  };
+}
+
+function collectMarkdownCodeBlock(lines, index) {
+  const items = [];
+  let cursor = index + 1;
+
+  while (cursor < lines.length && !/^```/.test(lines[cursor])) {
+    items.push(lines[cursor]);
+    cursor += 1;
+  }
+
+  return {
+    content: items.join("\n"),
+    nextIndex: cursor < lines.length ? cursor + 1 : cursor,
+  };
 }
 
 function renderDynamicActivity(activity) {
