@@ -2,6 +2,7 @@ import {
   canOpenModule,
   fetchCertificates,
   fetchAcademicModule,
+  fetchLibrary,
   fetchRanking,
   getNextAvailableModule,
   issueCertificate,
@@ -292,6 +293,39 @@ export const certificatesView = {
   },
 };
 
+export const libraryView = {
+  render({ session, routeViewModel }) {
+    if (!session.isCertifiable && !session.isVisitor) {
+      return landingView.render({ session, routeViewModel });
+    }
+
+    return `
+      <section class="view" data-library-view>
+        <div class="page-title">
+          <p class="eyebrow">Biblioteca</p>
+          <h1>Recursos de aprendizaje</h1>
+          <p>Consulta materiales de apoyo organizados por categoria.</p>
+        </div>
+
+        <div class="module-tabs" role="tablist" aria-label="Categorias de biblioteca">
+          <button class="module-tab is-active" type="button" data-library-category="">Todo</button>
+          <button class="module-tab" type="button" data-library-category="PDF">PDF</button>
+          <button class="module-tab" type="button" data-library-category="PLANTILLAS">Plantillas</button>
+          <button class="module-tab" type="button" data-library-category="CASOS">Casos</button>
+          <button class="module-tab" type="button" data-library-category="HERRAMIENTAS">Herramientas</button>
+        </div>
+
+        <div data-library-content>
+          <div class="alert info">Cargando biblioteca...</div>
+        </div>
+      </section>
+    `;
+  },
+  mount(context) {
+    bindLibraryView(context);
+  },
+};
+
 export const routeView = {
   render({ session, routeViewModel }) {
     if (!session.isCertifiable && !session.isVisitor) {
@@ -425,6 +459,79 @@ function bindRankingView({ root, session }) {
   });
 
   loadRanking("general");
+}
+
+function bindLibraryView({ root }) {
+  const content = qs("[data-library-content]", root);
+  const buttons = qsa("[data-library-category]", root);
+
+  if (!content) {
+    return;
+  }
+
+  const loadLibrary = async (category = "") => {
+    buttons.forEach((button) => button.classList.toggle("is-active", button.dataset.libraryCategory === category));
+    content.innerHTML = `<div class="alert info">Cargando biblioteca...</div>`;
+
+    try {
+      const result = await fetchLibrary(category);
+      content.innerHTML = renderLibraryResources(result.resources || []);
+    } catch (error) {
+      content.innerHTML = `<div class="alert danger">${escapeHtml(libraryErrorMessage(error))}</div>`;
+    }
+  };
+
+  buttons.forEach((button) => {
+    button.addEventListener("click", () => loadLibrary(button.dataset.libraryCategory || ""));
+  });
+
+  loadLibrary("");
+}
+
+function renderLibraryResources(resources = []) {
+  if (!resources.length) {
+    return `<article class="card"><p class="muted">No hay recursos activos para esta categoria.</p></article>`;
+  }
+
+  return `
+    <div class="library-grid">
+      ${resources.map(renderLibraryCard).join("")}
+    </div>
+  `;
+}
+
+function renderLibraryCard(resource) {
+  const category = resource.CATEGORIA || "Recurso";
+  const openUrl = resource.URL || resource.URL_DESCARGA || "";
+  const downloadUrl = resource.URL_DESCARGA || "";
+  const canDownload = downloadUrl && String(resource.DESCARGABLE || "").toUpperCase() !== "NO";
+
+  return `
+    <article class="library-card">
+      <div class="library-card-header">
+        <span class="badge">${escapeHtml(formatLibraryCategory(category))}</span>
+      </div>
+      <div class="library-card-body">
+        <h2>${escapeHtml(resource.TITULO || "Recurso sin titulo")}</h2>
+        <p>${escapeHtml(resource.DESCRIPCION || "Material disponible en biblioteca.")}</p>
+      </div>
+      <div class="button-row">
+        ${openUrl ? `<a class="button compact" href="${escapeHtml(openUrl)}" target="_blank" rel="noreferrer">Abrir</a>` : ""}
+        ${canDownload ? `<a class="button secondary compact" href="${escapeHtml(downloadUrl)}" target="_blank" rel="noreferrer" download>Descargar</a>` : ""}
+      </div>
+    </article>
+  `;
+}
+
+function formatLibraryCategory(category) {
+  const labels = {
+    PDF: "PDF",
+    PLANTILLAS: "Plantillas",
+    CASOS: "Casos",
+    HERRAMIENTAS: "Herramientas",
+  };
+
+  return labels[String(category || "").toUpperCase()] || category;
 }
 
 function renderRankingTable(rows = []) {
@@ -1227,6 +1334,16 @@ function recognitionErrorMessage(error) {
   };
 
   return messages[error.message] || "No fue posible completar la operacion de reconocimiento.";
+}
+
+function libraryErrorMessage(error) {
+  const messages = {
+    API_ENDPOINT_NOT_CONFIGURED: "Configura el endpoint de Apps Script para consultar biblioteca.",
+    API_REQUEST_FAILED: "No fue posible contactar el servicio de biblioteca.",
+    SHEET_NOT_FOUND: "La hoja BIBLIOTECA no existe o no esta disponible.",
+  };
+
+  return messages[error.message] || "No fue posible cargar la biblioteca.";
 }
 
 function bindLogout(root) {

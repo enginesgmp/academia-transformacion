@@ -28,6 +28,7 @@ ACADEMIA.SHEETS = {
   MODULOS: "MODULOS",
   CONTENIDOS: "CONTENIDOS",
   PREGUNTAS: "PREGUNTAS",
+  BIBLIOTECA: "BIBLIOTECA",
   XP: "XP",
   INSIGNIAS: "INSIGNIAS",
   CERTIFICADOS: "CERTIFICADOS",
@@ -135,6 +136,9 @@ function doPost(e) {
         break;
       case "submitEvaluation":
         result = submitEvaluation(payload);
+        break;
+      case "getLibrary":
+        result = getLibrary(payload);
         break;
       case "getRecognitionSummary":
         result = getRecognitionSummary(payload.idParticipante);
@@ -432,6 +436,30 @@ function registerPracticeCompletion(payload) {
   awardXp_(participantId, moduleId, "PRACTICA_COMPLETADA");
 
   return getRecognitionSummary(participantId);
+}
+
+function getLibrary(payload) {
+  var filters = payload || {};
+  var category = normalizeText_(filters.category || filters.categoria).toUpperCase();
+
+  var resources = readObjects_(ACADEMIA.SHEETS.BIBLIOTECA)
+    .filter(function(resource) {
+      var isActive = isActive_(resource.ACTIVO);
+      var isVisible = isActive_(resource.VISIBLE);
+      var matchesCategory = !category || normalizeText_(resource.CATEGORIA).toUpperCase() === category;
+
+      return isActive && isVisible && matchesCategory;
+    })
+    .sort(function(a, b) {
+      return normalizeLibraryCategoryOrder_(a.CATEGORIA) - normalizeLibraryCategoryOrder_(b.CATEGORIA) ||
+        toNumber_(a.ORDEN) - toNumber_(b.ORDEN) ||
+        String(a.TITULO || "").localeCompare(String(b.TITULO || ""));
+    })
+    .map(sanitizeLibraryResource_);
+
+  return {
+    resources: resources
+  };
 }
 
 function getRecognitionSummary(idParticipante) {
@@ -1315,6 +1343,19 @@ function sanitizeCertificate_(certificate) {
   };
 }
 
+function sanitizeLibraryResource_(resource) {
+  return {
+    ID_RECURSO: resource.ID_RECURSO || resource.ID || "",
+    CATEGORIA: resource.CATEGORIA || "",
+    TITULO: resource.TITULO || "",
+    DESCRIPCION: resource.DESCRIPCION || "",
+    URL: resource.URL || resource.URL_RECURSO || resource.URL_ARCHIVO || "",
+    URL_DESCARGA: resource.URL_DESCARGA || resource.URL_DOWNLOAD || "",
+    DESCARGABLE: resource.DESCARGABLE || "",
+    ORDEN: resource.ORDEN || ""
+  };
+}
+
 function sanitizeContent_(content) {
   return {
     ID_CONTENIDO: content.ID_CONTENIDO,
@@ -1329,6 +1370,18 @@ function sanitizeContent_(content) {
     ORDEN_SECCION: content.ORDEN_SECCION || "",
     ORDEN: content.ORDEN
   };
+}
+
+function normalizeLibraryCategoryOrder_(category) {
+  var normalizedCategory = normalizeText_(category).toUpperCase();
+  var order = {
+    PDF: 1,
+    PLANTILLAS: 2,
+    CASOS: 3,
+    HERRAMIENTAS: 4
+  };
+
+  return order[normalizedCategory] || 99;
 }
 
 function sanitizeQuestionForClient_(question) {

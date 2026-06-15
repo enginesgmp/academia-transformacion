@@ -850,6 +850,48 @@ a {
   font-weight: 600;
 }
 
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-4);
+}
+
+.library-card {
+  display: grid;
+  align-content: space-between;
+  gap: var(--space-4);
+  min-height: 230px;
+  padding: var(--space-5);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.library-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.library-card-body {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.library-card h2 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 1.15rem;
+  line-height: 1.25;
+}
+
+.library-card p {
+  margin: 0;
+  color: var(--color-muted);
+  line-height: 1.55;
+}
+
 .table-wrap {
   width: 100%;
   overflow-x: auto;

@@ -10,6 +10,7 @@ import {
   profileView,
   routeView,
   moduleView,
+  libraryView,
   rankingView,
   certificatesView,
 } from "./views.js";
@@ -63,6 +64,7 @@ function registerRoutes() {
   routes.set("/perfil", profileView);
   routes.set("/ruta", routeView);
   routes.set("/modulo", moduleView);
+  routes.set("/biblioteca", libraryView);
   routes.set("/ranking", rankingView);
   routes.set("/certificados", certificatesView);
   routes.set("/pendiente", pendingView);

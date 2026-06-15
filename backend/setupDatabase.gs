@@ -26,6 +26,7 @@ ACADEMIA.SHEETS = ACADEMIA.SHEETS || {
   MODULOS: "MODULOS",
   CONTENIDOS: "CONTENIDOS",
   PREGUNTAS: "PREGUNTAS",
+  BIBLIOTECA: "BIBLIOTECA",
   XP: "XP",
   INSIGNIAS: "INSIGNIAS",
   CERTIFICADOS: "CERTIFICADOS",
@@ -165,6 +166,25 @@ function setupDatabase() {
     "EXPLICACION",
     "ORDEN",
     "ACTIVO"
+  ]);
+
+  ensureSheet_(spreadsheet, ACADEMIA.SHEETS.BIBLIOTECA, [
+    "ID_RECURSO",
+    "ORGANIZACION",
+    "TITULO",
+    "DESCRIPCION",
+    "CATEGORIA",
+    "TIPO",
+    "URL",
+    "ID_RUTA",
+    "ID_MODULO",
+    "AUTOR",
+    "ACTIVO",
+    "VISIBLE",
+    "FECHA",
+    "URL_DESCARGA",
+    "DESCARGABLE",
+    "ORDEN"
   ]);
 
   ensureSheet_(spreadsheet, ACADEMIA.SHEETS.XP, [

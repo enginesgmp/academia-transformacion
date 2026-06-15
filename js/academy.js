@@ -188,6 +188,12 @@ export async function registerPracticeCompletion(moduleId, session) {
   });
 }
 
+export async function fetchLibrary(category = "") {
+  return callApi("getLibrary", {
+    category,
+  });
+}
+
 export async function fetchRanking(session, scope = "general") {
   const route = getActiveRouteConfig();
 
