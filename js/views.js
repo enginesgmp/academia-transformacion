@@ -262,7 +262,7 @@ export const certificatesView = {
         <div class="page-title">
           <p class="eyebrow">Certificados</p>
           <h1>Certificacion de ruta</h1>
-          <p>La emision requiere participante activo y todos los modulos aprobados.</p>
+          <p>La generacion requiere participante activo y todos los modulos aprobados.</p>
         </div>
 
         <div class="dashboard-grid">
@@ -270,7 +270,7 @@ export const certificatesView = {
             <h2>Estado</h2>
             <div class="metric">
               <strong>${routeComplete ? "Lista" : `${routeViewModel.progressPercent}%`}</strong>
-              <span class="muted">${routeComplete ? "Ruta completada" : "Completa la ruta para emitir"}</span>
+              <span class="muted">${routeComplete ? "Ruta completada" : "Completa la ruta para generar el certificado"}</span>
             </div>
           </article>
 
@@ -280,7 +280,7 @@ export const certificatesView = {
               <div class="alert info">Cargando certificados...</div>
             </div>
             <div class="button-row">
-              <button class="button" type="button" data-issue-certificate ${routeComplete ? "" : "disabled"}>Emitir certificado</button>
+              <button class="button" type="button" data-issue-certificate ${routeComplete ? "" : "disabled"}>Generar certificado</button>
               <a class="button secondary" href="#/ruta">Ver ruta</a>
             </div>
           </article>
@@ -567,9 +567,10 @@ function renderRankingTable(rows = []) {
   `;
 }
 
-function bindCertificatesView({ root, session }) {
+function bindCertificatesView({ root, session, routeViewModel }) {
   const content = qs("[data-certificates-content]", root);
   const issueButton = qs("[data-issue-certificate]", root);
+  const routeComplete = routeViewModel?.approvedCount === routeViewModel?.totalModules;
 
   if (!content) {
     return;
@@ -580,7 +581,10 @@ function bindCertificatesView({ root, session }) {
 
     try {
       const result = await fetchCertificates(session);
-      content.innerHTML = renderCertificateList(result.certificates || []);
+      const certificates = result.certificates || [];
+
+      content.innerHTML = renderCertificateList(certificates);
+      updateCertificateIssueButton(issueButton, routeComplete, certificates);
     } catch (error) {
       content.innerHTML = `<div class="alert danger">${escapeHtml(recognitionErrorMessage(error))}</div>`;
     }
@@ -589,17 +593,32 @@ function bindCertificatesView({ root, session }) {
   if (issueButton) {
     issueButton.addEventListener("click", async () => {
       issueButton.disabled = true;
-      issueButton.textContent = "Emitiendo...";
+      issueButton.textContent = "Generando...";
 
       try {
         const result = await issueCertificate(session);
+        const certificate = result.certificate || null;
+        const certificates = [certificate].filter(Boolean);
+
         updateRecognition(result.summary || session.recognition, false);
-        content.innerHTML = renderCertificateList([result.certificate].filter(Boolean));
+
+        content.innerHTML = renderCertificateList(certificates);
+
+        if (result.emailStatus === "ERROR" || result.emailError) {
+          content.insertAdjacentHTML(
+            "beforeend",
+            `<div class="alert warning">El certificado fue generado, pero la constancia interna por correo no pudo enviarse.</div>`
+          );
+        }
+
+        if (certificate?.URL_CERTIFICADO) {
+          openCertificateUrl(certificate.URL_CERTIFICADO);
+        }
+
+        updateCertificateIssueButton(issueButton, routeComplete, certificates);
       } catch (error) {
         content.innerHTML = `<div class="alert danger">${escapeHtml(recognitionErrorMessage(error))}</div>`;
-      } finally {
-        issueButton.disabled = false;
-        issueButton.textContent = "Emitir certificado";
+        updateCertificateIssueButton(issueButton, routeComplete, []);
       }
     });
   }
@@ -607,25 +626,58 @@ function bindCertificatesView({ root, session }) {
   loadCertificates();
 }
 
+function updateCertificateIssueButton(issueButton, routeComplete, certificates = []) {
+  if (!issueButton) {
+    return;
+  }
+
+  const hasCertificate = certificates.some((certificate) => certificate.URL_CERTIFICADO);
+
+  issueButton.hidden = hasCertificate;
+  issueButton.disabled = !routeComplete || hasCertificate;
+  issueButton.textContent = "Generar certificado";
+}
+
+function openCertificateUrl(url) {
+  const certificateUrl = String(url || "").trim();
+
+  if (!certificateUrl) {
+    return;
+  }
+
+  window.open(certificateUrl, "_blank", "noopener,noreferrer");
+}
+
 function renderCertificateList(certificates = []) {
   if (!certificates.length) {
-    return `<p class="muted">Todavia no existen certificados emitidos.</p>`;
+    return `<p class="muted">Todavia no existen certificados generados.</p>`;
   }
 
   return `
     <div class="certificate-list">
-      ${certificates.map((certificate) => `
-        <article class="certificate-card">
-          <div>
-            <strong>${escapeHtml(certificate.RUTA)}</strong>
-            <p class="muted">${escapeHtml(certificate.NOMBRE)} · ${formatDate(certificate.FECHA)} · ${Number(certificate.HORAS || 0)} horas</p>
-            <small class="muted">Codigo: ${escapeHtml(certificate.CODIGO)}</small>
-          </div>
-          ${certificate.URL_CERTIFICADO
-            ? `<a class="button secondary compact" href="${escapeHtml(certificate.URL_CERTIFICADO)}" target="_blank" rel="noreferrer">Abrir</a>`
-            : `<span class="badge warning">Sin URL</span>`}
-        </article>
-      `).join("")}
+      ${certificates.map((certificate) => {
+        const duration = certificate.HORAS || certificate.DURACION || "";
+        const emailError = certificate.ESTADO_ENVIO === "ERROR";
+
+        return `
+          <article class="certificate-card">
+            <div>
+              <strong>${escapeHtml(certificate.RUTA || "Certificado de ruta")}</strong>
+              <p class="muted">
+                ${escapeHtml(certificate.NOMBRE || "")}
+                · ${formatDate(certificate.FECHA)}
+                ${duration ? ` · ${escapeHtml(duration)}` : ""}
+              </p>
+              ${emailError
+                ? `<small class="muted">Constancia interna pendiente de envio.</small>`
+                : ""}
+            </div>
+            ${certificate.URL_CERTIFICADO
+              ? `<a class="button secondary compact" href="${escapeHtml(certificate.URL_CERTIFICADO)}" target="_blank" rel="noreferrer">Descargar certificado</a>`
+              : `<span class="badge warning">PDF pendiente</span>`}
+          </article>
+        `;
+      }).join("")}
     </div>
   `;
 }
