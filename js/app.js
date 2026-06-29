@@ -12,10 +12,8 @@ const navigationItems = [
   { path: "/home", label: "Home", icon: "H", modes: ["visitor", "certifiable"] },
   { path: "/ruta", label: "Mi ruta", icon: "R", modes: ["visitor", "certifiable"] },
   { path: "/perfil", label: "Perfil", icon: "P", modes: ["certifiable"] },
-  { path: "/biblioteca", label: "Biblioteca", icon: "B", modes: ["visitor", "certifiable"] },
   { path: "/ranking", label: "Ranking", icon: "K", modes: ["certifiable"] },
   { path: "/certificados", label: "Certificados", icon: "C", modes: ["certifiable"] },
-  { path: "/pendiente", label: "Juego", icon: "J", modes: ["visitor", "certifiable"], future: true },
 ];
 
 document.addEventListener("DOMContentLoaded", initApp);
